@@ -10,4 +10,5 @@ Route::get('/', function () {
     ]);
 });
 
+Route::get('/api/trechos', [TrechoController::class, 'index']);
 Route::post('/api/trechos', [TrechoController::class, 'store']);

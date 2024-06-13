@@ -13,9 +13,13 @@ class Trecho extends Model
         'data_referencia',
         'uf_id',
         'rodovia_id',
-        'tipo_trecho',
         'quilometragem_inicial',
         'quilometragem_final',
-        'geo', 
+        'geo',
+    ];
+
+    protected $casts = [
+        'data_referencia' => 'date',
+        'geo' => 'array',
     ];
 }

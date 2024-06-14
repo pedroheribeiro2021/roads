@@ -2,6 +2,7 @@
 
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TrechoController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -9,3 +10,5 @@ Route::get('/', function () {
     ]);
 });
 
+Route::get('/api/trechos', [TrechoController::class, 'index']);
+Route::post('/api/trechos', [TrechoController::class, 'store']);

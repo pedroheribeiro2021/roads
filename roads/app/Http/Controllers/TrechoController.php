@@ -55,7 +55,10 @@ class TrechoController extends Controller
 
     public function index()
     {
-        $trechos = Trecho::paginate(10); // Implementando paginação
-        return Inertia::render('Trechos/Index', ['trechos' => $trechos]);
+        $trechos = Trecho::paginate(10);
+
+        return Inertia::render('Trechos/Index', [
+            'trechos' => $trechos
+        ]);
     }
 }

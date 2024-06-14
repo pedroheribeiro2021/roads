@@ -73,7 +73,6 @@
             <button type="submit" class="btn">Buscar</button>
         </form>
 
-        <!-- Exibir mapa apenas se houver geoJSON -->
         <MapComponent v-if="geoJSON" :geoJSON="geoJSON" />
     </div>
 </template>
@@ -97,7 +96,7 @@ export default {
             quilometragem_final: 0,
         });
 
-        const geoJSON = ref(null); // Estado para armazenar o geoJSON obtido
+        const geoJSON = ref(null);
 
         const handleSubmit = async () => {
             try {
@@ -110,24 +109,20 @@ export default {
 
         const fetchGeoJSON = async () => {
             try {
-                // Montar a URL da API do DNIT
                 const url = `https://servicos.dnit.gov.br/sgplan/apigeo/rotas/espacializarlinha`;
                 const params = {
-                    br: form.value.rodovia_nome, // Nome da rodovia selecionada
-                    tipo: "B", // Definir o tipo conforme necessário
-                    uf: form.value.uf_nome, // Nome da UF selecionada
-                    cd_tipo: 0, // Ajustar o cd_tipo conforme necessário
+                    br: form.value.rodovia_nome,
+                    tipo: "B",
+                    uf: form.value.uf_nome,
+                    cd_tipo: 0,
                     data: form.value.data_referencia,
                     kmi: form.value.quilometragem_inicial,
                     kmf: form.value.quilometragem_final,
                 };
 
-                // Fazer a requisição GET para obter o GeoJSON
                 const response = await axios.get(url, { params });
 
-                // Verificar se a resposta possui dados
                 if (response && response.data) {
-                    // Extrair o GeoJSON da resposta
                     geoJSON.value = response.data;
                 } else {
                     console.error(
@@ -142,7 +137,6 @@ export default {
 
         const sendDataToBackend = async () => {
             try {
-                // Dados a serem enviados para o backend
                 const data = {
                     data_referencia: form.value.data_referencia,
                     uf_id: props.ufs.find(
@@ -153,13 +147,11 @@ export default {
                     )?.id,
                     quilometragem_inicial: form.value.quilometragem_inicial,
                     quilometragem_final: form.value.quilometragem_final,
-                    geo: geoJSON.value.geometry.coordinates, // Enviar apenas as coordenadas do geoJSON
+                    geo: geoJSON.value.geometry.coordinates,
                 };
 
-                // Salvar os dados do formulário no backend
                 const response = await axios.post("/api/trechos", data);
 
-                // Verificar se foi salvo com sucesso
                 if (response && response.data) {
                     alert("Trecho cadastrado com sucesso!");
                 } else {

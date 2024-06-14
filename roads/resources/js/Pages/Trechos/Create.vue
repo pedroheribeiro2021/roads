@@ -3,47 +3,88 @@
         <form @submit.prevent="submitForm" class="form">
             <div class="form-group">
                 <label for="data_referencia">Data de Referência:</label>
-                <input type="date" id="data_referencia" v-model="form.data_referencia" class="form-control">
+                <input
+                    type="date"
+                    id="data_referencia"
+                    v-model="form.data_referencia"
+                    class="form-control"
+                />
             </div>
 
             <div class="form-group">
-                <label for="uf_id">UF:</label>
-                <select id="uf_id" v-model="form.uf_id" class="form-control">
+                <label for="uf_nome">UF:</label>
+                <select id="uf_nome" v-model="form.uf_nome" class="form-control">
                     <option value="">Selecione a UF</option>
-                    <option v-for="uf in ufs" :key="uf.id" :value="uf.id">{{ uf.nome }}</option>
+                    <option v-for="uf in ufs" :key="uf.id" :value="uf.nome">
+                        {{ uf.nome }}
+                    </option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label for="rodovia_id">Rodovia:</label>
-                <select id="rodovia_id" v-model="form.rodovia_id" class="form-control">
+                <label for="rodovia_nome">Rodovia:</label>
+                <select
+                    id="rodovia_nome"
+                    v-model="form.rodovia_nome"
+                    class="form-control"
+                >
                     <option value="">Selecione a Rodovia</option>
-                    <option v-for="rodovia in rodovias" :key="rodovia.id" :value="rodovia.id">{{ rodovia.nome }}</option>
+                    <option
+                        v-for="rodovia in rodovias"
+                        :key="rodovia.id"
+                        :value="rodovia.nome"
+                    >
+                        {{ rodovia.nome }}
+                    </option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label for="quilometragem_inicial">Quilometragem Inicial:</label>
-                <input type="number" id="quilometragem_inicial" v-model.number="form.quilometragem_inicial" class="form-control">
+                <label for="quilometragem_inicial"
+                    >Quilometragem Inicial:</label
+                >
+                <input
+                    type="number"
+                    id="quilometragem_inicial"
+                    v-model.number="form.quilometragem_inicial"
+                    class="form-control"
+                />
             </div>
 
             <div class="form-group">
                 <label for="quilometragem_final">Quilometragem Final:</label>
-                <input type="number" id="quilometragem_final" v-model.number="form.quilometragem_final" class="form-control">
+                <input
+                    type="number"
+                    id="quilometragem_final"
+                    v-model.number="form.quilometragem_final"
+                    class="form-control"
+                />
             </div>
 
-            <div class="form-group">
+            <!-- Campo para exibir o GeoJSON -->
+            <div class="form-group" v-if="form.geo">
                 <label for="geo">GeoJSON:</label>
-                <textarea id="geo" v-model="form.geo" class="form-control"></textarea>
+                <textarea
+                    id="geo"
+                    v-model="form.geo"
+                    class="form-control"
+                    rows="5"
+                    readonly
+                ></textarea>
             </div>
 
             <button type="submit" class="btn">Salvar</button>
         </form>
+
+        <!-- Mapa -->
+        <MapComponent v-if="form.geo" :geoJSON="form.geo" />
     </div>
 </template>
 
 <script>
-import { useForm } from '@inertiajs/inertia-vue3';
+import { useForm } from "@inertiajs/inertia-vue3";
+import axios from "axios";
+import MapComponent from "./MapComponent.vue";
 
 export default {
     props: {
@@ -52,28 +93,53 @@ export default {
     },
     setup(props) {
         const form = useForm({
-            data_referencia: '',
-            uf_id: '',
-            rodovia_id: '',
+            data_referencia: "",
+            uf_nome: "",
+            rodovia_nome: "",
             quilometragem_inicial: 0,
             quilometragem_final: 0,
-            geo: '',
+            geo: "",
         });
 
-        const submitForm = () => {
+        const submitForm = async () => {
             try {
-                JSON.parse(form.geo);
+                // Montar a URL da API do DNIT
+                const url = `https://servicos.dnit.gov.br/sgplan/apigeo/rotas/espacializarlinha`;
+                const params = {
+                    br: form.rodovia_nome, // Nome da rodovia selecionada
+                    tipo: "B", // Definir o tipo conforme necessário
+                    uf: form.uf_nome, // Nome da UF selecionada
+                    cd_tipo: 0, // Ajustar o cd_tipo conforme necessário
+                    data: form.data_referencia,
+                    kmi: form.quilometragem_inicial,
+                    kmf: form.quilometragem_final,
+                };
 
-                form.post('/api/trechos', {
-                    onSuccess: () => {
-                        console.log('Formulário enviado com sucesso!');
-                    },
-                    onError: (errors) => {
-                        console.error('Erro ao enviar o formulário:', errors);
-                    },
-                });
-            } catch (e) {
-                console.error('O campo GeoJSON não é um JSON válido:', e.message);
+                // Fazer a requisição GET para obter o GeoJSON
+                const response = await axios.get(url, { params });
+
+                // Verificar se a resposta possui dados
+                if (response && response.data) {
+                    // Extrair o GeoJSON da resposta
+                    const geoJSON = response.data;
+
+                    // Armazenar o GeoJSON no formulário
+                    form.geo = JSON.stringify(geoJSON);
+
+                    // Salvar os dados do formulário no backend
+                    const saveResponse = await axios.post("/api/trechos", form);
+
+                    // Verificar se foi salvo com sucesso
+                    if (saveResponse && saveResponse.data) {
+                        alert("Trecho cadastrado com sucesso!");
+                    } else {
+                        console.error("Erro ao salvar os dados:", saveResponse);
+                    }
+                } else {
+                    console.error("Resposta da API vazia ou inválida:", response);
+                }
+            } catch (error) {
+                console.error("Erro ao enviar o formulário:", error);
             }
         };
 
@@ -84,8 +150,14 @@ export default {
             submitForm,
         };
     },
+    components: {
+        MapComponent,
+    },
 };
 </script>
+
+
+
 
 <style scoped>
 .form-container {

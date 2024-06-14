@@ -14,7 +14,12 @@
 
             <div class="form-group">
                 <label for="uf_nome">UF:</label>
-                <select id="uf_nome" v-model="form.uf_nome" class="form-control" required>
+                <select
+                    id="uf_nome"
+                    v-model="form.uf_nome"
+                    class="form-control"
+                    required
+                >
                     <option value="">Selecione a UF</option>
                     <option v-for="uf in ufs" :key="uf.id" :value="uf.nome">
                         {{ uf.nome }}
@@ -42,7 +47,9 @@
             </div>
 
             <div class="form-group">
-                <label for="quilometragem_inicial">Quilometragem Inicial:</label>
+                <label for="quilometragem_inicial"
+                    >Quilometragem Inicial:</label
+                >
                 <input
                     type="number"
                     id="quilometragem_inicial"
@@ -63,9 +70,7 @@
                 />
             </div>
 
-            <button type="submit" class="btn">
-                {{ geoJSON ? 'Salvar no Backend' : 'Buscar GeoJSON' }}
-            </button>
+            <button type="submit" class="btn">Buscar</button>
         </form>
 
         <!-- Exibir mapa apenas se houver geoJSON -->
@@ -96,13 +101,8 @@ export default {
 
         const handleSubmit = async () => {
             try {
-                if (!geoJSON.value) {
-                    // Se geoJSON ainda não foi buscado, buscar na API do DNIT
-                    await fetchGeoJSON();
-                } else {
-                    // Se geoJSON já foi obtido, enviar dados para o backend
-                    await sendDataToBackend();
-                }
+                await fetchGeoJSON();
+                await sendDataToBackend();
             } catch (error) {
                 console.error("Erro ao processar formulário:", error);
             }
@@ -129,14 +129,11 @@ export default {
                 if (response && response.data) {
                     // Extrair o GeoJSON da resposta
                     geoJSON.value = response.data;
-
-                    // Preencher os campos do formulário com os dados obtidos
-                    form.value.uf_nome = ""; // Manter ou limpar conforme necessário
-                    form.value.rodovia_nome = ""; // Manter ou limpar conforme necessário
-                    form.value.quilometragem_inicial = 0; // Manter ou limpar conforme necessário
-                    form.value.quilometragem_final = 0; // Manter ou limpar conforme necessário
                 } else {
-                    console.error("Resposta da API vazia ou inválida:", response);
+                    console.error(
+                        "Resposta da API vazia ou inválida:",
+                        response
+                    );
                 }
             } catch (error) {
                 console.error("Erro ao buscar GeoJSON na API do DNIT:", error);
@@ -145,23 +142,18 @@ export default {
 
         const sendDataToBackend = async () => {
             try {
-                // Buscar os IDs de uf e rodovia com base nos nomes selecionados no formulário
-                const uf = props.ufs.find(u => u.nome === form.value.uf_nome);
-                const rodovia = props.rodovias.find(r => r.nome === form.value.rodovia_nome);
-
-                if (!uf || !rodovia) {
-                    console.error("UF ou rodovia não encontrados com os nomes fornecidos:", form.value.uf_nome, form.value.rodovia_nome);
-                    return;
-                }
-
                 // Dados a serem enviados para o backend
                 const data = {
                     data_referencia: form.value.data_referencia,
-                    uf_id: uf.id, // Utilizar o ID da UF encontrada
-                    rodovia_id: rodovia.id, // Utilizar o ID da rodovia encontrada
+                    uf_id: props.ufs.find(
+                        (uf) => uf.nome === form.value.uf_nome
+                    )?.id,
+                    rodovia_id: props.rodovias.find(
+                        (rodovia) => rodovia.nome === form.value.rodovia_nome
+                    )?.id,
                     quilometragem_inicial: form.value.quilometragem_inicial,
                     quilometragem_final: form.value.quilometragem_final,
-                    geo: geoJSON.value.geometry.coordinates, // Enviar apenas coordinates
+                    geo: geoJSON.value.geometry.coordinates, // Enviar apenas as coordenadas do geoJSON
                 };
 
                 // Salvar os dados do formulário no backend

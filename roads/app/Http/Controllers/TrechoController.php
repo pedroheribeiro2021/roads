@@ -23,49 +23,34 @@ class TrechoController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'data_referencia' => 'required|date',
-        'uf_id' => 'required|integer',
-        'rodovia_id' => 'required|integer',
-        'quilometragem_inicial' => 'required|numeric',
-        'quilometragem_final' => 'required|numeric',
-    ]);
-
-    // Montar a URL da API do DNIT com os parâmetros do formulário
-    $url = sprintf(
-        'https://servicos.dnit.gov.br/sgplan/apigeo/rotas/espacializarlinha?br=%s&tipo=%s&uf=%s&data=%s&kmi=%s&kmf=%s',
-        $request->rodovia_id,
-        'tipo_especifico', // Substituir pelo tipo específico desejado
-        $request->uf_id,
-        $request->data_referencia,
-        $request->quilometragem_inicial,
-        $request->quilometragem_final
-    );
-
-    // Realizar a requisição GET à API do DNIT
-    $response = Http::get($url);
-
-    if ($response->successful()) {
-        $geo = $response->body();
-    } else {
-        return response()->json(['error' => 'Erro ao buscar GeoJSON na API do DNIT'], 500);
+    {
+        try {
+            $request->validate([
+                'data_referencia' => 'required|date',
+                'uf_id' => 'required|integer',
+                'rodovia_id' => 'required|integer',
+                'quilometragem_inicial' => 'required|numeric',
+                'quilometragem_final' => 'required|numeric',
+                'geo' => 'required|array', // Verifique se o campo geo é um array conforme definido no model
+            ]);
+    
+            $trecho = new Trecho([
+                'data_referencia' => $request->data_referencia,
+                'uf_id' => $request->uf_id,
+                'rodovia_id' => $request->rodovia_id,
+                'quilometragem_inicial' => $request->quilometragem_inicial,
+                'quilometragem_final' => $request->quilometragem_final,
+                'geo' => $request->geo,
+            ]);
+    
+            $trecho->save();
+    
+            return response()->json($trecho, 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Erro ao salvar o trecho: ' . $e->getMessage()], 500);
+        }
     }
-
-    // Salvar o trecho no banco de dados
-    $trecho = new Trecho([
-        'data_referencia' => $request->data_referencia,
-        'uf_id' => $request->uf_id,
-        'rodovia_id' => $request->rodovia_id,
-        'quilometragem_inicial' => $request->quilometragem_inicial,
-        'quilometragem_final' => $request->quilometragem_final,
-        'geo' => $geo,
-    ]);
-
-    $trecho->save();
-
-    return response()->json($trecho, 201);
-}
+    
 
 
     public function index()

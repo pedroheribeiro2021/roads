@@ -1,6 +1,6 @@
 <template>
     <div class="form-container">
-        <form @submit.prevent="submitForm" class="form">
+        <form @submit.prevent="handleSubmit" class="form">
             <div class="form-group">
                 <label for="data_referencia">Data de Referência:</label>
                 <input
@@ -8,12 +8,13 @@
                     id="data_referencia"
                     v-model="form.data_referencia"
                     class="form-control"
+                    required
                 />
             </div>
 
             <div class="form-group">
                 <label for="uf_nome">UF:</label>
-                <select id="uf_nome" v-model="form.uf_nome" class="form-control">
+                <select id="uf_nome" v-model="form.uf_nome" class="form-control" required>
                     <option value="">Selecione a UF</option>
                     <option v-for="uf in ufs" :key="uf.id" :value="uf.nome">
                         {{ uf.nome }}
@@ -27,6 +28,7 @@
                     id="rodovia_nome"
                     v-model="form.rodovia_nome"
                     class="form-control"
+                    required
                 >
                     <option value="">Selecione a Rodovia</option>
                     <option
@@ -40,14 +42,13 @@
             </div>
 
             <div class="form-group">
-                <label for="quilometragem_inicial"
-                    >Quilometragem Inicial:</label
-                >
+                <label for="quilometragem_inicial">Quilometragem Inicial:</label>
                 <input
                     type="number"
                     id="quilometragem_inicial"
                     v-model.number="form.quilometragem_inicial"
                     class="form-control"
+                    required
                 />
             </div>
 
@@ -58,31 +59,22 @@
                     id="quilometragem_final"
                     v-model.number="form.quilometragem_final"
                     class="form-control"
+                    required
                 />
             </div>
 
-            <!-- Campo para exibir o GeoJSON -->
-            <div class="form-group" v-if="form.geo">
-                <label for="geo">GeoJSON:</label>
-                <textarea
-                    id="geo"
-                    v-model="form.geo"
-                    class="form-control"
-                    rows="5"
-                    readonly
-                ></textarea>
-            </div>
-
-            <button type="submit" class="btn">Salvar</button>
+            <button type="submit" class="btn">
+                {{ geoJSON ? 'Salvar no Backend' : 'Buscar GeoJSON' }}
+            </button>
         </form>
 
-        <!-- Mapa -->
-        <MapComponent v-if="form.geo" :geoJSON="form.geo" />
+        <!-- Exibir mapa apenas se houver geoJSON -->
+        <MapComponent v-if="geoJSON" :geoJSON="geoJSON" />
     </div>
 </template>
 
 <script>
-import { useForm } from "@inertiajs/inertia-vue3";
+import { ref } from "vue";
 import axios from "axios";
 import MapComponent from "./MapComponent.vue";
 
@@ -92,27 +84,42 @@ export default {
         rodovias: Array,
     },
     setup(props) {
-        const form = useForm({
+        const form = ref({
             data_referencia: "",
             uf_nome: "",
             rodovia_nome: "",
             quilometragem_inicial: 0,
             quilometragem_final: 0,
-            geo: "",
         });
 
-        const submitForm = async () => {
+        const geoJSON = ref(null); // Estado para armazenar o geoJSON obtido
+
+        const handleSubmit = async () => {
+            try {
+                if (!geoJSON.value) {
+                    // Se geoJSON ainda não foi buscado, buscar na API do DNIT
+                    await fetchGeoJSON();
+                } else {
+                    // Se geoJSON já foi obtido, enviar dados para o backend
+                    await sendDataToBackend();
+                }
+            } catch (error) {
+                console.error("Erro ao processar formulário:", error);
+            }
+        };
+
+        const fetchGeoJSON = async () => {
             try {
                 // Montar a URL da API do DNIT
                 const url = `https://servicos.dnit.gov.br/sgplan/apigeo/rotas/espacializarlinha`;
                 const params = {
-                    br: form.rodovia_nome, // Nome da rodovia selecionada
+                    br: form.value.rodovia_nome, // Nome da rodovia selecionada
                     tipo: "B", // Definir o tipo conforme necessário
-                    uf: form.uf_nome, // Nome da UF selecionada
+                    uf: form.value.uf_nome, // Nome da UF selecionada
                     cd_tipo: 0, // Ajustar o cd_tipo conforme necessário
-                    data: form.data_referencia,
-                    kmi: form.quilometragem_inicial,
-                    kmf: form.quilometragem_final,
+                    data: form.value.data_referencia,
+                    kmi: form.value.quilometragem_inicial,
+                    kmf: form.value.quilometragem_final,
                 };
 
                 // Fazer a requisição GET para obter o GeoJSON
@@ -121,33 +128,60 @@ export default {
                 // Verificar se a resposta possui dados
                 if (response && response.data) {
                     // Extrair o GeoJSON da resposta
-                    const geoJSON = response.data;
+                    geoJSON.value = response.data;
 
-                    // Armazenar o GeoJSON no formulário
-                    form.geo = JSON.stringify(geoJSON);
-
-                    // Salvar os dados do formulário no backend
-                    const saveResponse = await axios.post("/api/trechos", form);
-
-                    // Verificar se foi salvo com sucesso
-                    if (saveResponse && saveResponse.data) {
-                        alert("Trecho cadastrado com sucesso!");
-                    } else {
-                        console.error("Erro ao salvar os dados:", saveResponse);
-                    }
+                    // Preencher os campos do formulário com os dados obtidos
+                    form.value.uf_nome = ""; // Manter ou limpar conforme necessário
+                    form.value.rodovia_nome = ""; // Manter ou limpar conforme necessário
+                    form.value.quilometragem_inicial = 0; // Manter ou limpar conforme necessário
+                    form.value.quilometragem_final = 0; // Manter ou limpar conforme necessário
                 } else {
                     console.error("Resposta da API vazia ou inválida:", response);
                 }
             } catch (error) {
-                console.error("Erro ao enviar o formulário:", error);
+                console.error("Erro ao buscar GeoJSON na API do DNIT:", error);
+            }
+        };
+
+        const sendDataToBackend = async () => {
+            try {
+                // Buscar os IDs de uf e rodovia com base nos nomes selecionados no formulário
+                const uf = props.ufs.find(u => u.nome === form.value.uf_nome);
+                const rodovia = props.rodovias.find(r => r.nome === form.value.rodovia_nome);
+
+                if (!uf || !rodovia) {
+                    console.error("UF ou rodovia não encontrados com os nomes fornecidos:", form.value.uf_nome, form.value.rodovia_nome);
+                    return;
+                }
+
+                // Dados a serem enviados para o backend
+                const data = {
+                    data_referencia: form.value.data_referencia,
+                    uf_id: uf.id, // Utilizar o ID da UF encontrada
+                    rodovia_id: rodovia.id, // Utilizar o ID da rodovia encontrada
+                    quilometragem_inicial: form.value.quilometragem_inicial,
+                    quilometragem_final: form.value.quilometragem_final,
+                    geo: geoJSON.value.geometry.coordinates, // Enviar apenas coordinates
+                };
+
+                // Salvar os dados do formulário no backend
+                const response = await axios.post("/api/trechos", data);
+
+                // Verificar se foi salvo com sucesso
+                if (response && response.data) {
+                    alert("Trecho cadastrado com sucesso!");
+                } else {
+                    console.error("Erro ao salvar os dados:", response);
+                }
+            } catch (error) {
+                console.error("Erro ao enviar os dados para o backend:", error);
             }
         };
 
         return {
             form,
-            ufs: props.ufs,
-            rodovias: props.rodovias,
-            submitForm,
+            geoJSON,
+            handleSubmit,
         };
     },
     components: {
@@ -155,9 +189,6 @@ export default {
     },
 };
 </script>
-
-
-
 
 <style scoped>
 .form-container {
